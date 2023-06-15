@@ -18,18 +18,28 @@ This Python-based tool uses the Tableau Server Client library to export views fr
 ## Installation
 1. Clone the repository:
     ```
-    git clone https://github.com/your-repo/tableau-pdf-exporter.git
+    git clone https://github.com/FsuLauncherComp/tableau-pdf-exporter.git
     ```
-2. Enter the repository directory:
+2. Navigate to the project root:
     ```
     cd tableau-pdf-exporter
+    ```
+    
+    2.1 (Optional) Create a virtual environment:
+    ```
+    python -m venv venv
+    ```
+
+    2.2 (Optional) Activate the virtual environment:
+    ```
+    source venv/bin/activate
     ```
 3. Install the required Python libraries:
     ```
     pip install -r requirements.txt
     ```
-4. Create a 'config.json' file in the project root with your configuration. The file should be structured as follows:
-```json
+4. Update the 'config.json' file in the project root with your configurations. The file should be structured as follows (note the order determines the order of the exported PDFs in the merged file):
+    ```json
     [
         {
             "name": "workbook_name",
@@ -40,7 +50,7 @@ This Python-based tool uses the Tableau Server Client library to export views fr
             ]
         }
     ]
-```
+    ```
 
 ## Usage
 ```
@@ -50,15 +60,15 @@ Export multiple dashboards as PDF, apply filters to the dashboards before export
 
 optional arguments:
   -h, --help 
-    show this help message and exit
+      show this help message and exit
   --server SERVER, -s SERVER 
-    server address
+      server url address
   --site SITE, -S SITE
-    site name
+      site name
   --token-name TOKEN_NAME, -p TOKEN_NAME 
-    name of the personal access token used to sign into the server
+      name of the personal access token used to sign into the server
   --token-value TOKEN_VALUE, -v TOKEN_VALUE
-    value of the personal access token used to sign into the server
+      value of the personal access token used to sign into the server
   --version VERSION, -V VERSION
-    server version
+      server version
 ```
