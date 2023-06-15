@@ -1,0 +1,2 @@
+tableauserverclient
+PyPDF2

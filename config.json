@@ -1,0 +1,8 @@
+[
+    {
+        "name": "workbook name",
+        "project": "project name",
+        "view": "worksheet or dashboard name",
+        "filters": [["filter_name", "filter_value"]]
+    }
+]
