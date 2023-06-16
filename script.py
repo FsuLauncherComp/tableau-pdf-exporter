@@ -3,7 +3,7 @@ import json
 import os
 from typing import List
 import tableauserverclient as TSC
-from PyPDF2 import PdfFileMerger
+from PyPDF2 import PdfMerger
 from tableauserverclient import RequestOptions, Filter
 
 
@@ -23,7 +23,8 @@ class TableauPdfExporter:
         site_name (str, optional): Name of the site. Defaults to "".
         """
         tableau_auth = TSC.PersonalAccessTokenAuth(token_name, token_value, site_name)
-        self.server = TSC.Server(self.server_url, add_http_options={"verify": False})
+        self.server = TSC.Server(self.server_url)
+        self.server.add_http_options({"verify": False})
         self.server.version = self.server_version
         try:
             self.server.auth.sign_in(tableau_auth)
@@ -55,7 +56,14 @@ class TableauPdfExporter:
                 f"Workbook {workbook_name} not found in project {project_name}"
             )
 
-        return workbook[0]
+        workbook = workbook[0]
+
+        # Populate the workbook with the views
+        self.server.workbooks.populate_views(workbook)
+
+        print(f"Found workbook {workbook.name} in project {workbook.project_name}")
+
+        return workbook
 
     def get_workbook_view(
         self, workbook: TSC.WorkbookItem, view_name: str
@@ -75,7 +83,11 @@ class TableauPdfExporter:
         if len(view) == 0:
             raise ValueError(f"View {view_name} not found in workbook {workbook.name}")
 
-        return view[0]
+        view = view[0]
+
+        print(f"Found view {view.name} in workbook {workbook.name}")
+
+        return view
 
     def get_view_pdf_with_filter(self, filter: list, view_item: TSC.ViewItem) -> bytes:
         """
@@ -88,12 +100,17 @@ class TableauPdfExporter:
         Returns:
         bytes: The PDF file in bytes.
         """
+        print(f"Generating PDF for view {view_item.name} with filter {filter}")
         pdf_req_option = TSC.PDFRequestOptions()
         if filter:
-            filter_name, filter_value = filter
-            pdf_req_option.vf(filter_name, filter_value)
+            for f in filter:
+                filter_name, filter_value = f
+                pdf_req_option.vf(filter_name, filter_value)
+            self.server.views.populate_pdf(view_item, pdf_req_option)
+        else:
+            self.server.views.populate_pdf(view_item)
 
-        return self.server.workbooks.populate_pdf(view_item, pdf_req_option)
+        return view_item.pdf
 
     @staticmethod
     def save_pdf_to_directory(
@@ -125,8 +142,12 @@ class TableauPdfExporter:
         Returns:
         str: The path of the merged PDF file.
         """
-        merger = PdfFileMerger()
+        merger = PdfMerger()
+        
         pdfs = [f for f in os.listdir(directory) if f.endswith(".pdf")]
+
+        # Reverse so order so that the first page is the first PDF
+        pdfs.reverse()
 
         for pdf in pdfs:
             merger.append(f"{directory}/{pdf}")
@@ -181,21 +202,15 @@ def main():
 
     workbooks = exporter.load_config()
     for i, workbook in enumerate(workbooks):
-        wb = exporter.get_workbook(workbook["name"], workbook["project"])
-        view = exporter.get_workbook_view(wb, workbook["view"])
-        if workbook["filters"]:
-            for n, filter in enumerate(workbook["filters"]):
-                pdf_name = f"{i}.{n}_{workbook['name']}.pdf"
-                pdf_file = exporter.get_view_pdf_with_filter(filter, view)
-                exporter.save_pdf_to_directory(pdf_file, pdf_name)
-        else:
-            pdf_file = exporter.get_view_pdf_with_filter([], view)
-            pdf_name = f"{i}.0_{workbook['name']}.pdf"
-            exporter.save_pdf_to_directory(pdf_file, pdf_name)
+        wb_name, wb_project, wb_view, wb_filters = workbook.values()
+        wb = exporter.get_workbook(wb_name, wb_project)
+        view = exporter.get_workbook_view(wb, wb_view)
+        pdf_name = f"{i}_{workbook['name']}"
+        pdf_file = exporter.get_view_pdf_with_filter(wb_filters, view)
+        exporter.save_pdf_to_directory(pdf_file, pdf_name)
 
-    merged_pdf = exporter.merge_pdfs_from_directory()
-    print(merged_pdf)
-
-
+    merged_pdf = exporter.merge_pdfs_from_directory("output")
+    print(f"PDF file saved to {merged_pdf}")
+    
 if __name__ == "__main__":
     main()
