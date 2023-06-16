@@ -13,7 +13,7 @@ class TableauPdfExporter:
         self.server_version = server_version
         self.server = None
 
-    def connect(self, token_name: str, token_value: str, site_name: str = ""):
+    def connect(self, token_name: str, token_value: str, site_name: str = "") -> None:
         """
         Establish a connection to the Tableau Server.
 
@@ -105,6 +105,12 @@ class TableauPdfExporter:
         if filter:
             for f in filter:
                 filter_name, filter_value = f
+
+                # Cheap Escaping fix for commas and ampersands
+                # TODO: Make this better and handle when commas are needed for multiple values
+                filter_value = filter_value.replace("&", "%26").replace(",", "%5C,")
+                filter_name = filter_name.replace("&", "%26").replace(",", "%5C,")
+
                 pdf_req_option.vf(filter_name, filter_value)
             self.server.views.populate_pdf(view_item, pdf_req_option)
         else:
@@ -115,7 +121,7 @@ class TableauPdfExporter:
     @staticmethod
     def save_pdf_to_directory(
         pdf_file: bytes, file_name: str, directory: str = "output"
-    ):
+    ) -> str:
         """
         Save the PDF file to the specified directory.
 
@@ -128,8 +134,13 @@ class TableauPdfExporter:
         directory (str, optional): The directory to save the file. Defaults to "output".
         """
         os.makedirs(directory, exist_ok=True)
-        with open(f"{directory}/{file_name}.pdf", "wb") as f:
+
+        output_file = f"{directory}/{file_name}.pdf"
+
+        with open(output_file, "wb") as f:
             f.write(pdf_file)
+
+        return output_file
 
     @staticmethod
     def merge_pdfs_from_directory(directory: str = "output") -> str:
@@ -143,13 +154,14 @@ class TableauPdfExporter:
         str: The path of the merged PDF file.
         """
         merger = PdfMerger()
-        
+
         pdfs = [f for f in os.listdir(directory) if f.endswith(".pdf")]
 
         # Reverse so order so that the first page is the first PDF
-        pdfs.reverse()
+        pdfs.sort(reverse=True, key=str.lower)
 
         for pdf in pdfs:
+            print(f"Merging {pdf}")
             merger.append(f"{directory}/{pdf}")
 
         merged_file_path = f"{directory}/merged_pdfs.pdf"
@@ -207,10 +219,11 @@ def main():
         view = exporter.get_workbook_view(wb, wb_view)
         pdf_name = f"{i}_{workbook['name']}"
         pdf_file = exporter.get_view_pdf_with_filter(wb_filters, view)
-        exporter.save_pdf_to_directory(pdf_file, pdf_name)
+        saved_pdf = exporter.save_pdf_to_directory(pdf_file, pdf_name)
 
     merged_pdf = exporter.merge_pdfs_from_directory("output")
     print(f"PDF file saved to {merged_pdf}")
-    
+
+
 if __name__ == "__main__":
     main()
